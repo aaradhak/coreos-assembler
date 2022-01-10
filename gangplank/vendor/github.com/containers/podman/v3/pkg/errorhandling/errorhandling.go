@@ -15,6 +15,12 @@ func JoinErrors(errs []error) error {
 		return nil
 	}
 
+	// If there's just one error, return it.  This prevents the "%d errors
+	// occurred:" header plus list from the multierror package.
+	if len(errs) == 1 {
+		return errs[0]
+	}
+
 	// `multierror` appends new lines which we need to remove to prevent
 	// blank lines when printing the error.
 	var multiE *multierror.Error
@@ -23,9 +29,6 @@ func JoinErrors(errs []error) error {
 	finalErr := multiE.ErrorOrNil()
 	if finalErr == nil {
 		return finalErr
-	}
-	if len(multiE.WrappedErrors()) == 1 && logrus.IsLevelEnabled(logrus.TraceLevel) {
-		return multiE.WrappedErrors()[0]
 	}
 	return errors.New(strings.TrimSpace(finalErr.Error()))
 }
@@ -80,6 +83,12 @@ func Contains(err error, sub error) bool {
 	return strings.Contains(err.Error(), sub.Error())
 }
 
+// PodConflictErrorModel is used in remote connections with podman
+type PodConflictErrorModel struct {
+	Errs []string
+	Id   string //nolint
+}
+
 // ErrorModel is used in remote connections with podman
 type ErrorModel struct {
 	// API root cause formatted for automated parsing
@@ -102,4 +111,12 @@ func (e ErrorModel) Cause() error {
 
 func (e ErrorModel) Code() int {
 	return e.ResponseCode
+}
+
+func (e PodConflictErrorModel) Error() string {
+	return strings.Join(e.Errs, ",")
+}
+
+func (e PodConflictErrorModel) Code() int {
+	return 409
 }

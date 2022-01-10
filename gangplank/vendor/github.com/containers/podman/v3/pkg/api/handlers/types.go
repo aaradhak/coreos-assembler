@@ -98,12 +98,13 @@ type BuildResult struct {
 
 type ContainerWaitOKBody struct {
 	StatusCode int
-	Error      struct {
+	Error      *struct {
 		Message string
 	}
 }
 
 // CreateContainerConfig used when compatible endpoint creates a container
+// swagger:model CreateContainerConfig
 type CreateContainerConfig struct {
 	Name                   string                         // container name
 	dockerContainer.Config                                // desired container configuration
@@ -133,6 +134,7 @@ type PodCreateConfig struct {
 	Infra        bool     `json:"infra"`
 	InfraCommand string   `json:"infra-command"`
 	InfraImage   string   `json:"infra-image"`
+	InfraName    string   `json:"infra-name"`
 	Labels       []string `json:"labels"`
 	Publish      []string `json:"publish"`
 	Share        string   `json:"share"`
@@ -148,15 +150,6 @@ type HistoryResponse struct {
 	Comment   string
 }
 
-type ImageLayer struct{}
-
-type ImageTreeResponse struct {
-	ID     string       `json:"id"`
-	Tags   []string     `json:"tags"`
-	Size   string       `json:"size"`
-	Layers []ImageLayer `json:"layers"`
-}
-
 type ExecCreateConfig struct {
 	docker.ExecConfig
 }
@@ -166,8 +159,10 @@ type ExecCreateResponse struct {
 }
 
 type ExecStartConfig struct {
-	Detach bool `json:"Detach"`
-	Tty    bool `json:"Tty"`
+	Detach bool   `json:"Detach"`
+	Tty    bool   `json:"Tty"`
+	Height uint16 `json:"h"`
+	Width  uint16 `json:"w"`
 }
 
 func ImageToImageSummary(l *libimage.Image) (*entities.ImageSummary, error) {
@@ -182,8 +177,14 @@ func ImageToImageSummary(l *libimage.Image) (*entities.ImageSummary, error) {
 	}
 	containerCount := len(containers)
 
+	isDangling, err := l.IsDangling(context.TODO())
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to check if image %s is dangling", l.ID())
+	}
+
 	is := entities.ImageSummary{
-		ID:           l.ID(),
+		// docker adds sha256: in front of the ID
+		ID:           "sha256:" + l.ID(),
 		ParentId:     imageData.Parent,
 		RepoTags:     imageData.RepoTags,
 		RepoDigests:  imageData.RepoDigests,
@@ -194,7 +195,7 @@ func ImageToImageSummary(l *libimage.Image) (*entities.ImageSummary, error) {
 		Labels:       imageData.Labels,
 		Containers:   containerCount,
 		ReadOnly:     l.IsReadOnly(),
-		Dangling:     l.IsDangling(),
+		Dangling:     isDangling,
 		Names:        l.Names(),
 		Digest:       string(imageData.Digest),
 		ConfigDigest: "", // TODO: libpod/image didn't set it but libimage should
@@ -239,27 +240,32 @@ func ImageDataToImageInspect(ctx context.Context, l *libimage.Image) (*ImageInsp
 		Name: info.GraphDriver.Name,
 		Data: info.GraphDriver.Data,
 	}
+	// Add in basic ContainerConfig to satisfy docker-compose
+	cc := new(dockerContainer.Config)
+	cc.Hostname = info.ID[0:11] // short ID is the hostname
+	cc.Volumes = info.Config.Volumes
+
 	dockerImageInspect := docker.ImageInspect{
-		Architecture:  info.Architecture,
-		Author:        info.Author,
-		Comment:       info.Comment,
-		Config:        &config,
-		Created:       l.Created().Format(time.RFC3339Nano),
-		DockerVersion: info.Version,
-		GraphDriver:   graphDriver,
-		ID:            "sha256:" + l.ID(),
-		Metadata:      docker.ImageMetadata{},
-		Os:            info.Os,
-		OsVersion:     info.Version,
-		Parent:        info.Parent,
-		RepoDigests:   info.RepoDigests,
-		RepoTags:      info.RepoTags,
-		RootFS:        rootfs,
-		Size:          info.Size,
-		Variant:       "",
-		VirtualSize:   info.VirtualSize,
+		Architecture:    info.Architecture,
+		Author:          info.Author,
+		Comment:         info.Comment,
+		Config:          &config,
+		ContainerConfig: cc,
+		Created:         l.Created().Format(time.RFC3339Nano),
+		DockerVersion:   info.Version,
+		GraphDriver:     graphDriver,
+		ID:              "sha256:" + l.ID(),
+		Metadata:        docker.ImageMetadata{},
+		Os:              info.Os,
+		OsVersion:       info.Version,
+		Parent:          info.Parent,
+		RepoDigests:     info.RepoDigests,
+		RepoTags:        info.RepoTags,
+		RootFS:          rootfs,
+		Size:            info.Size,
+		Variant:         "",
+		VirtualSize:     info.VirtualSize,
 	}
-	// TODO: consider filling the container config.
 	return &ImageInspect{dockerImageInspect}, nil
 }
 

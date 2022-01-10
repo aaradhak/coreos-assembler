@@ -189,20 +189,22 @@ type InspectMount struct {
 // Docker, but here we see more fields that are unused (nonsensical in the
 // context of Libpod).
 type InspectContainerState struct {
-	OciVersion  string             `json:"OciVersion"`
-	Status      string             `json:"Status"`
-	Running     bool               `json:"Running"`
-	Paused      bool               `json:"Paused"`
-	Restarting  bool               `json:"Restarting"` // TODO
-	OOMKilled   bool               `json:"OOMKilled"`
-	Dead        bool               `json:"Dead"`
-	Pid         int                `json:"Pid"`
-	ConmonPid   int                `json:"ConmonPid,omitempty"`
-	ExitCode    int32              `json:"ExitCode"`
-	Error       string             `json:"Error"` // TODO
-	StartedAt   time.Time          `json:"StartedAt"`
-	FinishedAt  time.Time          `json:"FinishedAt"`
-	Healthcheck HealthCheckResults `json:"Healthcheck,omitempty"`
+	OciVersion   string             `json:"OciVersion"`
+	Status       string             `json:"Status"`
+	Running      bool               `json:"Running"`
+	Paused       bool               `json:"Paused"`
+	Restarting   bool               `json:"Restarting"` // TODO
+	OOMKilled    bool               `json:"OOMKilled"`
+	Dead         bool               `json:"Dead"`
+	Pid          int                `json:"Pid"`
+	ConmonPid    int                `json:"ConmonPid,omitempty"`
+	ExitCode     int32              `json:"ExitCode"`
+	Error        string             `json:"Error"` // TODO
+	StartedAt    time.Time          `json:"StartedAt"`
+	FinishedAt   time.Time          `json:"FinishedAt"`
+	Healthcheck  HealthCheckResults `json:"Healthcheck,omitempty"`
+	Checkpointed bool               `json:"Checkpointed,omitempty"`
+	CgroupPath   string             `json:"CgroupPath,omitempty"`
 }
 
 // HealthCheckResults describes the results/logs from a healthcheck
@@ -713,13 +715,16 @@ type DriverData struct {
 	Data map[string]string `json:"Data"`
 }
 
-// InspectHostPort provides information on a port on the host that a container's
-// port is bound to.
+// InspectSecret contains information on secrets mounted inside the container
 type InspectSecret struct {
-	// IP on the host we are bound to. "" if not specified (binding to all
-	// IPs).
+	// Name is the name of the secret
 	Name string `json:"Name"`
-	// Port on the host we are bound to. No special formatting - just an
-	// integer stuffed into a string.
+	// ID is the ID of the secret
 	ID string `json:"ID"`
+	// ID is the UID of the mounted secret file
+	UID uint32 `json:"UID"`
+	// ID is the GID of the mounted secret file
+	GID uint32 `json:"GID"`
+	// ID is the ID of the mode of the mounted secret file
+	Mode uint32 `json:"Mode"`
 }

@@ -11,11 +11,12 @@ type SecretCreateReport struct {
 }
 
 type SecretCreateOptions struct {
-	Driver string
+	Driver     string
+	DriverOpts map[string]string
 }
 
 type SecretListRequest struct {
-	Filters map[string]string
+	Filters map[string][]string
 }
 
 type SecretListReport struct {
