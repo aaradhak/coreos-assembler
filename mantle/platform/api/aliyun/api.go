@@ -92,6 +92,8 @@ func New(opts *Options) (*API, error) {
 	if err != nil {
 		return nil, err
 	}
+	ecs.SetHTTPSInsecureSkipVerify(true)
+	ecs.SetScheme("https")
 
 	oss, err := oss.New(getOSSEndpoint(opts.Region), opts.AccessKeyID, opts.SecretKey)
 	if err != nil {
